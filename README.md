@@ -87,6 +87,12 @@ const App = () => {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // 파일 타입 체크 (오디오 파일인지)
+      if (!file.type.startsWith('audio/')) {
+        setErrorMessage("오디오 파일만 업로드할 수 있습니다.");
+        return;
+      }
+
       setErrorMessage(null);
       stopMic();
       safePause();
@@ -105,9 +111,18 @@ const App = () => {
     }
   };
 
-  // 오디오 로딩 완료 핸들러
+  // 오디오 로딩 완료 핸들러 (여러 이벤트 중 하나라도 트리거되면 준비 완료)
   const handleCanPlay = () => {
-    setIsAudioReady(true);
+    if (!isAudioReady) {
+      setIsAudioReady(true);
+    }
+  };
+
+  // 오디오 에러 핸들러
+  const handleAudioError = (e) => {
+    console.error("Audio error:", e);
+    setErrorMessage("오디오 파일을 불러오는 중 오류가 발생했습니다. 파일이 손상되었거나 지원하지 않는 형식일 수 있습니다.");
+    setIsAudioReady(false);
   };
 
   // 마이크 켜기/끄기 토글
@@ -199,7 +214,6 @@ const App = () => {
       initAudioContext();
       
       // 소스 연결 (한 번만 수행하되, 연결이 끊겼을 수 있으므로 체크)
-      // 주의: createMediaElementSource는 한 요소당 한 번만 생성 가능.
       if (!sourceRef.current) {
         try {
           sourceRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
@@ -529,15 +543,17 @@ const App = () => {
                         </button>
                      )}
                 </div>
-                {/* 중요: onCanPlay 이벤트 추가 및 crossOrigin 설정 */}
+                {/* 중요: onCanPlay, onLoadedData 모두 사용하여 로딩 감지 강화 */}
+                {/* crossOrigin="anonymous" 제거 (로컬 파일 로딩 문제 해결) */}
                 <audio 
                     ref={audioRef} 
                     onCanPlay={handleCanPlay}
+                    onLoadedData={handleCanPlay}
+                    onError={handleAudioError}
                     onEnded={() => {
                         setIsPlaying(false);
                         isPlayingRef.current = false;
                     }} 
-                    crossOrigin="anonymous" 
                     className="hidden" 
                 />
               </div>
